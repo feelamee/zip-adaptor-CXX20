@@ -24,7 +24,7 @@ concept container = std::ranges::range<T> && requires {
 
 template <typename T, typename... argsT>
 concept out_container = requires(T t, argsT&&... args) {
-    std::ranges::range<T> && (container<argsT> && ...);
+    requires std::ranges::range<T> && (container<argsT> && ...);
     T();
     t.emplace_back(args[std::declval<std::size_t>()]...);
 };
@@ -380,20 +380,30 @@ public:
     }
 };
 
-struct Zip
+// struct Zip
+// {
+//     template <typename... Vs>
+//     constexpr auto
+//     operator()(Vs&&... views) const
+//     {
+//         if constexpr (0 == sizeof...(views))
+//             return std::views::empty<std::tuple<>>;
+//         else
+//             return zip_impl<std::views::all_t<Vs>...>(
+//                 std::forward<Vs>(views)...);
+//     }
+// };
+// inline constexpr Zip zip;
+
+template <typename... Vs>
+constexpr auto
+zip(Vs&&... views)
 {
-    template <typename... Vs>
-    constexpr auto
-    operator()(Vs&&... views) const
-    {
-        if constexpr (0 == sizeof...(views))
-            return std::views::empty<std::tuple<>>;
-        else
-            return zip_impl<std::views::all_t<Vs>...>(
-                std::forward<Vs>(views)...);
-    }
-};
-inline constexpr Zip zip;
+    if constexpr (0 == sizeof...(views))
+        return std::views::empty<std::tuple<>>;
+    else
+        return zip_impl<std::views::all_t<Vs>...>(std::forward<Vs>(views)...);
+}
 
 TEST_CASE("test new zip impl")
 {
