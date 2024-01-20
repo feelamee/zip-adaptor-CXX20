@@ -13,70 +13,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-namespace naive
-{
-
-template <typename T, typename pureT = std::remove_cvref_t<T>>
-concept container = std::ranges::range<T> && requires {
-    typename pureT::value_type;
-    std::declval<pureT>()[std::declval<std::size_t>()];
-};
-
-template <typename T, typename... argsT>
-concept out_container = requires(T t, argsT&&... args) {
-    requires std::ranges::range<T> && (container<argsT> && ...);
-    T();
-    t.emplace_back(args[std::declval<std::size_t>()]...);
-};
-
-template <typename... argsT>
-using tuple_t =
-    std::tuple<typename std::remove_reference_t<argsT>::value_type&...>;
-
-template <container... argsT,
-          out_container<argsT...> outT = std::vector<tuple_t<argsT...>>>
-auto
-zip(argsT&&... args)
-{
-    static_assert(sizeof...(argsT) > 1,
-                  "what do you want to zip??? you already have one sequence");
-
-    std::size_t min_size = std::ranges::min({ std::size(args)... });
-
-    outT result;
-    result.reserve(min_size);
-
-    for (std::size_t i{ 0 }; i < min_size; ++i)
-    {
-        result.emplace_back(args[i]...);
-    }
-
-    return result;
-}
-
-TEST_CASE("naive zip implementation")
-{
-    std::vector tmp1{ 1, 2, 3, 5, 6 };
-    std::vector tmp2 = { 3, 2, 0, 5 };
-    std::vector tmp3 = { 9, 8, 0, 50 };
-    auto it = tmp1.begin();
-    auto jt = tmp2.begin();
-    auto kt = tmp3.begin();
-    for (auto& [i, j, k] : zip(tmp1, tmp2, tmp3))
-    {
-        REQUIRE(i == *it);
-        REQUIRE(j == *jt);
-        REQUIRE(k == *kt);
-        ++it;
-        ++jt;
-        ++kt;
-    }
-}
-
-} // namespace naive
-
-////------------------------------------------------------
-
 namespace detail
 {
 
@@ -190,6 +126,7 @@ public:
             : value{ std::move(iters) }
         {
         }
+
         constexpr iterator(const self_type& iters)
             : value{ iters.value }
         {
@@ -370,39 +307,28 @@ public:
     }
 };
 
-// struct Zip
-// {
-//     template <typename... Vs>
-//     constexpr auto
-//     operator()(Vs&&... views) const
-//     {
-//         if constexpr (0 == sizeof...(views))
-//             return std::views::empty<std::tuple<>>;
-//         else
-//             return zip_impl<std::views::all_t<Vs>...>(
-//                 std::forward<Vs>(views)...);
-//     }
-// };
-// inline constexpr Zip zip;
-
-template <typename... Vs>
-constexpr auto
-zip(Vs&&... views)
+struct Zip
 {
-    if constexpr (0 == sizeof...(views))
-        return std::views::empty<std::tuple<>>;
-    else
-        return zip_impl<std::views::all_t<Vs>...>(std::forward<Vs>(views)...);
-}
+    template <typename... Vs>
+    constexpr auto
+    operator()(Vs&&... views) const
+    {
+        if constexpr (0 == sizeof...(views))
+            return std::views::empty<std::tuple<>>;
+        else
+            return zip_impl<std::views::all_t<Vs>...>(
+                std::forward<Vs>(views)...);
+    }
+};
+inline constexpr Zip zip;
 
-TEST_CASE("test new zip impl")
+TEST_CASE("test zip impl")
 {
     std::vector tmp1{ 1, 2, 3, 5, 6 };
     std::vector tmp2{ 15, 52, 123, 213, 123 };
     std::vector tmp3{ "4", "fldsajkf", "fg", "41", "13" };
 
-    // auto sorted = std::ranges::sort(
-    //     zip(tmp2, tmp3), {}, [&](auto& arg) { return std::get<0>(arg); });
+    static_assert(std::ranges::random_access_range<decltype(zip(tmp2, tmp3))>);
 
     const int skip{ 0 };
     auto it{ tmp1.begin() + skip };
@@ -412,7 +338,7 @@ TEST_CASE("test new zip impl")
     for (auto [i, j, k] :
          zip(tmp1, tmp2, tmp3) | std::views::take(3) | std::views::drop(skip))
     {
-        // std::cout << i << " " << j << " " << k << std::endl;
+        std::cout << i << " " << j << " " << k << std::endl;
         REQUIRE(i == *it);
         REQUIRE(j == *jt);
         REQUIRE(k == *kt);
