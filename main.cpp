@@ -360,16 +360,6 @@ public:
     }
 
     constexpr auto
-    size()
-        requires(std::ranges::sized_range<Vs> && ...)
-    {
-        return std::apply(
-            [&](auto&&... args)
-            { return std::ranges::min({ std::ranges::size(args)... }); },
-            views);
-    }
-
-    constexpr auto
     size() const
         requires(std::ranges::sized_range<Vs> && ...)
     {
